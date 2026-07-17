@@ -284,6 +284,21 @@
     <input class="sheet-url-input" id="inp-script-url" type="url" placeholder="https://script.google.com/macros/s/..." oninput="guardarConfig()">
     <div id="conexion-chip"></div>
 
+    <label class="form-label" style="margin-top:16px">Imagen o video para mensajes (opcional)</label>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:6px">Se adjuntará en todos los mensajes de WhatsApp que envíes</p>
+    <div class="media-picker" onclick="document.getElementById('media-input-config').click()">
+      <input type="file" id="media-input-config" accept="image/*,video/*" onchange="previewMediaConfig(this)">
+      <div class="media-label" id="media-label-config">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        Seleccionar imagen o video
+      </div>
+      <img id="media-preview-config" class="media-preview" alt="Vista previa">
+    </div>
+    <button class="copy-btn" id="btn-quitar-media" style="display:none;color:var(--red);border-color:var(--red)" onclick="quitarMedia()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+      Quitar imagen
+    </button>
+
     <label class="form-label" style="margin-top:16px">App de WhatsApp para notificaciones</label>
     <p style="font-size:13px;color:var(--muted);margin-bottom:4px">Elige qué app se abre al tocar "Enviar" en la lista de notificaciones</p>
     <div class="wa-selector">
@@ -306,6 +321,11 @@
   <div class="modal-box">
     <div class="modal-title">Enviar mensaje</div>
     <div class="modal-sub" id="wa-ind-sub">Fechas del periodo para el mensaje</div>
+    <div id="wa-ind-media-wrap" style="display:none;margin:10px 0 4px">
+      <div style="font-size:12px;color:var(--green);font-weight:600;margin-bottom:4px">📎 Adjunto configurado</div>
+      <img id="wa-ind-media-thumb" style="max-height:70px;border-radius:8px;object-fit:cover;" alt="">
+      <div id="wa-ind-media-nombre" style="font-size:12px;color:var(--muted);margin-top:2px"></div>
+    </div>
     <label class="modal-label" style="margin-top:4px">Fecha de inicio</label>
     <input class="modal-input" id="wa-ind-inicio" type="text" placeholder="Ej: 16 de junio">
     <label class="modal-label">Fecha de cierre</label>
@@ -347,14 +367,10 @@
       <div class="modal-title">Periodo del programa</div>
       <div class="modal-sub">Las fechas se insertan en cada mensaje</div>
 
-      <label class="modal-label" style="margin-top:4px">Imagen o video (opcional)</label>
-      <div class="media-picker" onclick="document.getElementById('media-input').click()">
-        <input type="file" id="media-input" accept="image/*,video/*" onchange="previewMedia(this)">
-        <div class="media-label" id="media-label">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-          Seleccionar imagen o video para adjuntar
-        </div>
-        <img id="media-preview" class="media-preview" alt="Vista previa">
+      <div id="modal-media-thumb-wrap" style="display:none;margin:10px 0 4px">
+        <div style="font-size:12px;color:var(--green);font-weight:600;margin-bottom:4px">📎 Adjunto configurado</div>
+        <img id="modal-media-thumb-preview" style="max-height:70px;border-radius:8px;object-fit:cover;" alt="">
+        <div id="modal-media-nombre" style="font-size:12px;color:var(--muted);margin-top:2px"></div>
       </div>
       <label class="modal-label">Fecha de inicio</label>
       <input class="modal-input" id="modal-inicio" type="text" placeholder="Ej: 16 de junio">
@@ -597,10 +613,10 @@ function enviarWAIndividual(id) {
   if (!c) return;
   waIndClienteId = id;
   document.getElementById('wa-ind-sub').textContent = c.nombre + ' · ' + c.telefono;
-  // Reusar fechas previas si las hay
   const ini = document.getElementById('wa-ind-inicio').value || '';
   const fin = document.getElementById('wa-ind-fin').value || '';
   actualizarWAIndPreview(c, ini, fin);
+  mostrarMediaEnModal('wa-ind-media-wrap', 'wa-ind-media-thumb', 'wa-ind-media-nombre');
   document.getElementById('modal-wa-individual').classList.add('open');
 }
 
@@ -716,6 +732,7 @@ function abrirModal() {
   document.getElementById('fase-envio').style.display  = 'none';
   document.getElementById('fase-fin').style.display    = 'none';
   actualizarModalPreview();
+  mostrarMediaEnModal('modal-media-thumb-wrap', 'modal-media-thumb-preview', 'modal-media-nombre');
   document.getElementById('modal-fechas').classList.add('open');
 }
 function cerrarModal() {
@@ -800,15 +817,16 @@ function toast(msg) {
 }
 
 
-// ─── CAMBIO 3: Media picker ──────────────────────────────────────────────
+// ─── MEDIA (imagen/video) — configurada en Config ───────────────────────
 let mediaSeleccionada = null;
 
-function previewMedia(input) {
+function previewMediaConfig(input) {
   const file = input.files[0];
   if (!file) return;
   mediaSeleccionada = file;
-  const label = document.getElementById('media-label');
-  const preview = document.getElementById('media-preview');
+  const label   = document.getElementById('media-label-config');
+  const preview = document.getElementById('media-preview-config');
+  const btnQuitar = document.getElementById('btn-quitar-media');
   label.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> ${file.name}`;
   if (file.type.startsWith('image/')) {
     preview.src = URL.createObjectURL(file);
@@ -816,10 +834,41 @@ function previewMedia(input) {
   } else {
     preview.style.display = 'none';
   }
+  btnQuitar.style.display = 'inline-flex';
+  toast('Imagen guardada para mensajes ✓');
+}
+
+function quitarMedia() {
+  mediaSeleccionada = null;
+  const label   = document.getElementById('media-label-config');
+  const preview = document.getElementById('media-preview-config');
+  const btnQuitar = document.getElementById('btn-quitar-media');
+  label.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> Seleccionar imagen o video`;
+  preview.style.display = 'none';
+  preview.src = '';
+  btnQuitar.style.display = 'none';
+  document.getElementById('media-input-config').value = '';
+  toast('Imagen eliminada');
+}
+
+// Muestra el thumb de media en cualquier modal (notificar masivo o individual)
+function mostrarMediaEnModal(wrapId, thumbId, nombreId) {
+  const wrap  = document.getElementById(wrapId);
+  const thumb = document.getElementById(thumbId);
+  const nombre = document.getElementById(nombreId);
+  if (!mediaSeleccionada) { wrap.style.display = 'none'; return; }
+  nombre.textContent = mediaSeleccionada.name;
+  if (mediaSeleccionada.type.startsWith('image/')) {
+    thumb.src = URL.createObjectURL(mediaSeleccionada);
+    thumb.style.display = 'block';
+  } else {
+    thumb.style.display = 'none';
+  }
+  wrap.style.display = 'block';
 }
 
 function mostrarThumbEnTurno() {
-  const wrap = document.getElementById('turno-media-wrap');
+  const wrap  = document.getElementById('turno-media-wrap');
   const thumb = document.getElementById('turno-media-thumb');
   if (mediaSeleccionada && mediaSeleccionada.type.startsWith('image/')) {
     thumb.src = URL.createObjectURL(mediaSeleccionada);
@@ -827,7 +876,7 @@ function mostrarThumbEnTurno() {
   } else if (mediaSeleccionada) {
     wrap.style.display = 'block';
     thumb.style.display = 'none';
-    wrap.querySelector('div').textContent = `📎 Video seleccionado: ${mediaSeleccionada.name} — agrégalo en WhatsApp al abrir`;
+    wrap.querySelector('div').textContent = `📎 ${mediaSeleccionada.name} — agrégalo en WhatsApp al abrir`;
   } else {
     wrap.style.display = 'none';
   }
