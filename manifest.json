@@ -1,0 +1,24 @@
+{
+  "name": "Watchlist de Apoyo",
+  "short_name": "Watchlist",
+  "description": "Lista de espera para programa de apoyo gobierno — Marca Segura",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F7F6F3",
+  "theme_color": "#1A4FBF",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
