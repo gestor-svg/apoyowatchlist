@@ -639,6 +639,7 @@ async function guardarCliente() {
   // ── Validar duplicado por teléfono ──────────────────────────────────
   const telNorm   = normalizarTel(telefono);
   const existente = clientes.find(c => normalizarTel(c.telefono) === telNorm);
+  console.log('Tel normalizado:', telNorm, '| Clientes:', clientes.length, '| Duplicado:', existente ? existente.nombre : 'ninguno');
   if (existente) {
     clientePendiente = cliente;
     document.getElementById('dup-sub').textContent =
