@@ -301,6 +301,22 @@
   </div>
 </div>
 
+<!-- ───────────────── MODAL: WHATSAPP INDIVIDUAL ───────────────── -->
+<div class="modal-overlay" id="modal-wa-individual">
+  <div class="modal-box">
+    <div class="modal-title">Enviar mensaje</div>
+    <div class="modal-sub" id="wa-ind-sub">Fechas del periodo para el mensaje</div>
+    <label class="modal-label" style="margin-top:4px">Fecha de inicio</label>
+    <input class="modal-input" id="wa-ind-inicio" type="text" placeholder="Ej: 16 de junio">
+    <label class="modal-label">Fecha de cierre</label>
+    <input class="modal-input" id="wa-ind-fin" type="text" placeholder="Ej: 30 de junio">
+    <div class="msg-preview-label" style="margin:12px 0 6px">Vista previa</div>
+    <div class="msg-preview" id="wa-ind-preview" style="font-size:13px;margin-bottom:16px"></div>
+    <button class="modal-btn-green" onclick="confirmarWAIndividual()">Abrir WhatsApp ✓</button>
+    <button class="modal-cancel" onclick="cerrarWAIndividual()">Cancelar</button>
+  </div>
+</div>
+
 <!-- ───────────────── MODAL: EDITAR CLIENTE ───────────────── -->
 <div class="modal-overlay" id="modal-editar">
   <div class="modal-box">
@@ -562,7 +578,7 @@ function renderLista() {
         ${c.marca ? `<div class="client-marca">🏷️ ${c.marca}${c.producto ? ' — '+c.producto : ''}</div>` : ''}
         ${c.nota  ? `<div class="client-phone" style="font-style:italic;margin-top:2px">${c.nota}</div>` : ''}
         <div class="client-actions">
-          <a class="action-link" href="https://wa.me/${telWA}" target="_blank">WhatsApp</a>
+          <span class="action-link" onclick="enviarWAIndividual(${c.id})">WhatsApp</span>
           <span class="sep">·</span>
           <span class="action-link" onclick="editarCliente(${c.id})">Editar</span>
           <span class="sep">·</span>
@@ -572,6 +588,63 @@ function renderLista() {
     </div>`;
   }).join('');
 }
+
+// ─── WHATSAPP INDIVIDUAL ────────────────────────────────────────────────
+let waIndClienteId = null;
+
+function enviarWAIndividual(id) {
+  const c = clientes.find(x => x.id === id);
+  if (!c) return;
+  waIndClienteId = id;
+  document.getElementById('wa-ind-sub').textContent = c.nombre + ' · ' + c.telefono;
+  // Reusar fechas previas si las hay
+  const ini = document.getElementById('wa-ind-inicio').value || '';
+  const fin = document.getElementById('wa-ind-fin').value || '';
+  actualizarWAIndPreview(c, ini, fin);
+  document.getElementById('modal-wa-individual').classList.add('open');
+}
+
+function actualizarWAIndPreview(c, ini, fin) {
+  document.getElementById('wa-ind-preview').textContent =
+    construirMensaje(c, ini || '{inicio}', fin || '{fin}');
+}
+
+function cerrarWAIndividual() {
+  document.getElementById('modal-wa-individual').classList.remove('open');
+  waIndClienteId = null;
+}
+
+function confirmarWAIndividual() {
+  const ini = document.getElementById('wa-ind-inicio').value.trim();
+  const fin = document.getElementById('wa-ind-fin').value.trim();
+  if (!ini || !fin) { toast('Agrega las dos fechas'); return; }
+  const c = clientes.find(x => x.id === waIndClienteId);
+  if (!c) return;
+  const msg  = construirMensaje(c, ini, fin);
+  const link = buildWALink(c.telefono, msg);
+  // Marcar como notificado
+  c.estado = 'notificado';
+  localStorage.setItem('gm_clientes', JSON.stringify(clientes));
+  cerrarWAIndividual();
+  renderLista();
+  window.open(link, '_blank');
+}
+
+// Listeners para actualizar preview en tiempo real
+document.getElementById('wa-ind-inicio').addEventListener('input', () => {
+  const c = clientes.find(x => x.id === waIndClienteId);
+  if (!c) return;
+  actualizarWAIndPreview(c,
+    document.getElementById('wa-ind-inicio').value,
+    document.getElementById('wa-ind-fin').value);
+});
+document.getElementById('wa-ind-fin').addEventListener('input', () => {
+  const c = clientes.find(x => x.id === waIndClienteId);
+  if (!c) return;
+  actualizarWAIndPreview(c,
+    document.getElementById('wa-ind-inicio').value,
+    document.getElementById('wa-ind-fin').value);
+});
 
 // ─── EDITAR ─────────────────────────────────────────────────────────────
 function editarCliente(id) {
