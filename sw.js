@@ -1,4 +1,4 @@
-const CACHE_NAME = 'watchlist-v6';
+const CACHE_NAME = 'watchlist-v7';
 const ASSETS = [
   './',
   './index.html',
@@ -23,11 +23,22 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-// Interceptar peticiones — cache first, luego red
+// Network first — siempre busca en red, usa caché solo si no hay conexión
 self.addEventListener('fetch', event => {
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      return cached || fetch(event.request).catch(() => caches.match('./index.html'));
-    })
+    fetch(event.request)
+      .then(response => {
+        // Si la respuesta es válida, actualiza el caché
+        if (response && response.status === 200) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+        }
+        return response;
+      })
+      .catch(() => {
+        // Sin red: usa caché
+        return caches.match(event.request)
+          .then(cached => cached || caches.match('./index.html'));
+      })
   );
 });
