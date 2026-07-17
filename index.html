@@ -316,6 +316,22 @@
   </div>
 </div>
 
+<!-- ───────────────── MODAL: DUPLICADO ───────────────── -->
+<div class="modal-overlay" id="modal-duplicado">
+  <div class="modal-box">
+    <div style="font-size:36px;text-align:center;margin-bottom:8px">⚠️</div>
+    <div class="modal-title" style="text-align:center">Teléfono duplicado</div>
+    <div class="modal-sub" style="text-align:center" id="dup-sub"></div>
+    <div class="client-turn-card" style="margin:14px 0">
+      <div class="client-turn-name" id="dup-nombre-existente"></div>
+      <div class="client-turn-meta" id="dup-tel-existente"></div>
+      <div class="client-turn-meta" id="dup-marca-existente" style="color:var(--accent);font-weight:500;margin-top:2px"></div>
+    </div>
+    <button class="modal-btn" style="background:var(--red)" onclick="guardarDuplicado()">Guardar de todas formas</button>
+    <button class="modal-cancel" onclick="cancelarDuplicado()">Cancelar — no guardar</button>
+  </div>
+</div>
+
 <!-- ───────────────── MODAL: WHATSAPP INDIVIDUAL ───────────────── -->
 <div class="modal-overlay" id="modal-wa-individual">
   <div class="modal-box">
@@ -445,7 +461,7 @@ const SCRIPT_CODE = `function doPost(e) {
       ]);
 
     } else if (accion === 'editar') {
-      var fila = buscarFila(hoja, d.id);
+      var fila = buscarFila(hoja, d.id, d.telefono);
       if (fila > 0) {
         hoja.getRange(fila, 2).setValue(d.nombre    || '');
         hoja.getRange(fila, 3).setValue(d.telefono  || '');
@@ -456,11 +472,11 @@ const SCRIPT_CODE = `function doPost(e) {
       }
 
     } else if (accion === 'eliminar') {
-      var fila = buscarFila(hoja, d.id);
+      var fila = buscarFila(hoja, d.id, d.telefono);
       if (fila > 0) hoja.deleteRow(fila);
 
     } else if (accion === 'notificado') {
-      var fila = buscarFila(hoja, d.id);
+      var fila = buscarFila(hoja, d.id, d.telefono);
       if (fila > 0) {
         hoja.getRange(fila, 9).setValue('Sí');
         hoja.getRange(fila, 10).setValue(new Date().toLocaleDateString('es-MX'));
@@ -477,10 +493,19 @@ const SCRIPT_CODE = `function doPost(e) {
   }
 }
 
-function buscarFila(hoja, id) {
+function buscarFila(hoja, id, telefono) {
   var datos = hoja.getDataRange().getValues();
+  // Primero buscar por ID exacto
   for (var i = 1; i < datos.length; i++) {
     if (String(datos[i][0]) === String(id)) return i + 1;
+  }
+  // Fallback: buscar por teléfono (para registros sin ID)
+  if (telefono) {
+    var telLimpio = String(telefono).replace(/\D/g,'');
+    for (var i = 1; i < datos.length; i++) {
+      var telHoja = String(datos[i][2]).replace(/\D/g,'');
+      if (telHoja === telLimpio) return i + 1;
+    }
   }
   return -1;
 }`;
@@ -566,6 +591,8 @@ function selectTipo(tipo) {
 }
 
 // ─── GUARDAR CLIENTE ────────────────────────────────────────────────────
+let clientePendiente = null; // guarda el cliente mientras se muestra el modal de duplicado
+
 async function guardarCliente() {
   const nombre   = document.getElementById('inp-nombre').value.trim();
   const telefono = document.getElementById('inp-telefono').value.trim();
@@ -584,6 +611,37 @@ async function guardarCliente() {
     fecha: new Date().toLocaleDateString('es-MX')
   };
 
+  // ── Validar duplicado por teléfono ──────────────────────────────────
+  const telLimpio = telefono.replace(/\D/g,'');
+  const existente = clientes.find(c => c.telefono.replace(/\D/g,'') === telLimpio);
+  if (existente) {
+    clientePendiente = cliente;
+    document.getElementById('dup-sub').textContent =
+      `El número ${telefono} ya está registrado como:`;
+    document.getElementById('dup-nombre-existente').textContent = existente.nombre;
+    document.getElementById('dup-tel-existente').textContent    = existente.telefono + (existente.email ? ' · ' + existente.email : '');
+    document.getElementById('dup-marca-existente').textContent  = existente.marca ? '🏷️ ' + existente.marca : '';
+    document.getElementById('modal-duplicado').classList.add('open');
+    return; // esperar decisión del usuario
+  }
+
+  await _procesarGuardar(cliente);
+}
+
+function cancelarDuplicado() {
+  document.getElementById('modal-duplicado').classList.remove('open');
+  clientePendiente = null;
+}
+
+async function guardarDuplicado() {
+  document.getElementById('modal-duplicado').classList.remove('open');
+  if (clientePendiente) {
+    await _procesarGuardar(clientePendiente);
+    clientePendiente = null;
+  }
+}
+
+async function _procesarGuardar(cliente) {
   clientes.unshift(cliente);
   localStorage.setItem('gm_clientes', JSON.stringify(clientes));
   actualizarContador();
@@ -754,7 +812,7 @@ function eliminarCliente(id) {
   // Sincronizar con Sheets
   const scriptUrl = config.scriptUrl;
   if (scriptUrl && c) {
-    fetch(scriptUrl, { method:'POST', body: JSON.stringify({accion:'eliminar', id: c.id}) })
+    fetch(scriptUrl, { method:'POST', body: JSON.stringify({accion:'eliminar', id: c.id, telefono: c.telefono}) })
       .then(() => toast('Eliminado de Sheets ✓'))
       .catch(() => toast('Eliminado local (sin conexión a Sheets)'));
   } else {
