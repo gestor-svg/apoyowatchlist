@@ -591,7 +591,32 @@ function selectTipo(tipo) {
 }
 
 // ─── GUARDAR CLIENTE ────────────────────────────────────────────────────
-let clientePendiente = null; // guarda el cliente mientras se muestra el modal de duplicado
+// ─── GUARDAR CLIENTE ────────────────────────────────────────────────────
+let clientePendiente = null;
+
+// Normaliza teléfono: solo dígitos, sin código de país 52
+function normalizarTel(tel) {
+  let t = String(tel).replace(/\D/g, '');
+  if (t.startsWith('52') && t.length > 10) t = t.slice(2);
+  return t;
+}
+
+// Detección de duplicado en tiempo real al escribir el teléfono
+document.getElementById('inp-telefono').addEventListener('input', function() {
+  const telNorm = normalizarTel(this.value);
+  if (telNorm.length < 8) {
+    this.style.borderColor = '';
+    return;
+  }
+  const dup = clientes.find(c => normalizarTel(c.telefono) === telNorm);
+  if (dup) {
+    this.style.borderColor = 'var(--red)';
+    this.title = `⚠ Ya registrado: ${dup.nombre}`;
+  } else {
+    this.style.borderColor = 'var(--green)';
+    this.title = '';
+  }
+});
 
 async function guardarCliente() {
   const nombre   = document.getElementById('inp-nombre').value.trim();
@@ -612,8 +637,8 @@ async function guardarCliente() {
   };
 
   // ── Validar duplicado por teléfono ──────────────────────────────────
-  const telLimpio = telefono.replace(/\D/g,'');
-  const existente = clientes.find(c => c.telefono.replace(/\D/g,'') === telLimpio);
+  const telNorm   = normalizarTel(telefono);
+  const existente = clientes.find(c => normalizarTel(c.telefono) === telNorm);
   if (existente) {
     clientePendiente = cliente;
     document.getElementById('dup-sub').textContent =
@@ -622,7 +647,7 @@ async function guardarCliente() {
     document.getElementById('dup-tel-existente').textContent    = existente.telefono + (existente.email ? ' · ' + existente.email : '');
     document.getElementById('dup-marca-existente').textContent  = existente.marca ? '🏷️ ' + existente.marca : '';
     document.getElementById('modal-duplicado').classList.add('open');
-    return; // esperar decisión del usuario
+    return;
   }
 
   await _procesarGuardar(cliente);
@@ -662,6 +687,8 @@ async function _procesarGuardar(cliente) {
   // Limpiar formulario
   ['inp-nombre','inp-telefono','inp-email','inp-marca','inp-producto','inp-nota']
     .forEach(id => document.getElementById(id).value = '');
+  document.getElementById('inp-telefono').style.borderColor = '';
+  document.getElementById('inp-telefono').title = '';
   tipoSeleccionado = '';
   document.getElementById('btn-urgente').className = 'type-btn';
   document.getElementById('btn-apoyo').className   = 'type-btn';
