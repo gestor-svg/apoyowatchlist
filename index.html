@@ -420,23 +420,53 @@ const SCRIPT_CODE = `function doPost(e) {
   try {
     var ss   = SpreadsheetApp.getActiveSpreadsheet();
     var hoja = ss.getSheets()[0];
+    var d    = JSON.parse(e.postData.contents);
+    var accion = d.accion || 'agregar';
+
+    // Crear cabeceras si la hoja está vacía
     if (hoja.getLastRow() === 0) {
-      hoja.appendRow(['Nombre','Teléfono','Email','Nombre de marca',
+      hoja.appendRow(['ID','Nombre','Teléfono','Email','Nombre de marca',
         'Producto / servicio','Fecha de registro','Notas',
         'Notificado (Sí/No)','Fecha de notificación']);
-      hoja.getRange(1,1,1,9).setFontWeight('bold');
+      hoja.getRange(1,1,1,10).setFontWeight('bold');
     }
-    var d = JSON.parse(e.postData.contents);
-    hoja.appendRow([
-      d.nombre    || '',
-      d.telefono  || '',
-      d.email     || '',
-      d.marca     || '',
-      d.producto  || '',
-      new Date().toLocaleDateString('es-MX'),
-      d.nota      || '',
-      'No', ''
-    ]);
+
+    if (accion === 'agregar') {
+      hoja.appendRow([
+        d.id        || '',
+        d.nombre    || '',
+        d.telefono  || '',
+        d.email     || '',
+        d.marca     || '',
+        d.producto  || '',
+        new Date().toLocaleDateString('es-MX'),
+        d.nota      || '',
+        'No', ''
+      ]);
+
+    } else if (accion === 'editar') {
+      var fila = buscarFila(hoja, d.id);
+      if (fila > 0) {
+        hoja.getRange(fila, 2).setValue(d.nombre    || '');
+        hoja.getRange(fila, 3).setValue(d.telefono  || '');
+        hoja.getRange(fila, 4).setValue(d.email     || '');
+        hoja.getRange(fila, 5).setValue(d.marca     || '');
+        hoja.getRange(fila, 6).setValue(d.producto  || '');
+        hoja.getRange(fila, 8).setValue(d.nota      || '');
+      }
+
+    } else if (accion === 'eliminar') {
+      var fila = buscarFila(hoja, d.id);
+      if (fila > 0) hoja.deleteRow(fila);
+
+    } else if (accion === 'notificado') {
+      var fila = buscarFila(hoja, d.id);
+      if (fila > 0) {
+        hoja.getRange(fila, 9).setValue('Sí');
+        hoja.getRange(fila, 10).setValue(new Date().toLocaleDateString('es-MX'));
+      }
+    }
+
     return ContentService
       .createTextOutput(JSON.stringify({ok:true}))
       .setMimeType(ContentService.MimeType.JSON);
@@ -445,6 +475,14 @@ const SCRIPT_CODE = `function doPost(e) {
       .createTextOutput(JSON.stringify({ok:false,error:err.toString()}))
       .setMimeType(ContentService.MimeType.JSON);
   }
+}
+
+function buscarFila(hoja, id) {
+  var datos = hoja.getDataRange().getValues();
+  for (var i = 1; i < datos.length; i++) {
+    if (String(datos[i][0]) === String(id)) return i + 1;
+  }
+  return -1;
 }`;
 
 document.getElementById('script-display').textContent = SCRIPT_CODE;
@@ -555,7 +593,7 @@ async function guardarCliente() {
     const btn = document.getElementById('btn-guardar');
     btn.disabled = true; btn.textContent = 'Guardando en Sheets...';
     try {
-      await fetch(scriptUrl, { method:'POST', body: JSON.stringify(cliente) });
+      await fetch(scriptUrl, { method:'POST', body: JSON.stringify({accion:'agregar', ...cliente}) });
       toast('Guardado en Sheets ✓');
     } catch { toast('Guardado local (sin conexión a Sheets)'); }
     btn.disabled = false; btn.textContent = 'Guardar cliente';
@@ -638,9 +676,14 @@ function confirmarWAIndividual() {
   if (!c) return;
   const msg  = construirMensaje(c, ini, fin);
   const link = buildWALink(c.telefono, msg);
-  // Marcar como notificado
   c.estado = 'notificado';
   localStorage.setItem('gm_clientes', JSON.stringify(clientes));
+  // Sincronizar con Sheets
+  const scriptUrl = config.scriptUrl;
+  if (scriptUrl) {
+    fetch(scriptUrl, { method:'POST', body: JSON.stringify({accion:'notificado', id: c.id}) })
+      .catch(() => {});
+  }
   cerrarWAIndividual();
   renderLista();
   window.open(link, '_blank');
@@ -692,13 +735,31 @@ function guardarEdicion() {
   localStorage.setItem('gm_clientes', JSON.stringify(clientes));
   cerrarEditar();
   renderLista();
-  toast('Cliente actualizado ✓');
+  // Sincronizar con Sheets
+  const scriptUrl = config.scriptUrl;
+  if (scriptUrl) {
+    fetch(scriptUrl, { method:'POST', body: JSON.stringify({accion:'editar', ...c}) })
+      .then(() => toast('Cliente actualizado en Sheets ✓'))
+      .catch(() => toast('Actualizado local (sin conexión a Sheets)'));
+  } else {
+    toast('Cliente actualizado ✓');
+  }
 }
 function eliminarCliente(id) {
-  if (!confirm('¿Eliminar este cliente de la lista local?')) return;
-  clientes = clientes.filter(c => c.id !== id);
+  if (!confirm('¿Eliminar este cliente de la lista?')) return;
+  const c = clientes.find(x => x.id === id);
+  clientes = clientes.filter(x => x.id !== id);
   localStorage.setItem('gm_clientes', JSON.stringify(clientes));
   actualizarContador(); renderLista();
+  // Sincronizar con Sheets
+  const scriptUrl = config.scriptUrl;
+  if (scriptUrl && c) {
+    fetch(scriptUrl, { method:'POST', body: JSON.stringify({accion:'eliminar', id: c.id}) })
+      .then(() => toast('Eliminado de Sheets ✓'))
+      .catch(() => toast('Eliminado local (sin conexión a Sheets)'));
+  } else {
+    toast('Cliente eliminado ✓');
+  }
 }
 
 // ─── PLANTILLA / MENSAJE ────────────────────────────────────────────────
@@ -784,6 +845,13 @@ function enviarActual() {
   c.estado = 'notificado';
   enviados++;
   colaIndex++;
+  localStorage.setItem('gm_clientes', JSON.stringify(clientes));
+  // Sincronizar con Sheets
+  const scriptUrl = config.scriptUrl;
+  if (scriptUrl) {
+    fetch(scriptUrl, { method:'POST', body: JSON.stringify({accion:'notificado', id: c.id}) })
+      .catch(() => {});
+  }
   mostrarClienteActual();
 }
 function saltarActual() { colaIndex++; mostrarClienteActual(); }
