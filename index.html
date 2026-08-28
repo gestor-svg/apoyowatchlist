@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+successfully downloaded text file (SHA: 10d49f2d9815406640a35369e71c81540584cf1c)<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -281,7 +281,10 @@
 <div id="tab-lista" class="section" style="display:none">
   <div class="list-header">
     <span class="list-title">Lista de espera — apoyo gobierno</span>
-    <button class="notify-btn" onclick="abrirModal()">📨 Notificar</button>
+    <div style="display:flex;gap:8px">
+      <button class="notify-btn" style="background:var(--surface);color:var(--muted);border-color:var(--border);font-size:16px" onclick="cargarDesdeSheets()" title="Sincronizar desde Sheets">⟳</button>
+      <button class="notify-btn" onclick="abrirModal()">📨 Notificar</button>
+    </div>
   </div>
   <div id="lista-container"></div>
 </div>
@@ -468,7 +471,37 @@
 
 <script>
 // ─── APPS SCRIPT CODE (9 columnas) ─────────────────────────────────────
-const SCRIPT_CODE = `function doPost(e) {
+const SCRIPT_CODE = `// ── LEER clientes desde Sheets ──────────────────────────────────────────
+function doGet(e) {
+  try {
+    var hoja = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+    var datos = hoja.getDataRange().getValues();
+    var clientes = [];
+    for (var i = 1; i < datos.length; i++) {
+      var fila = datos[i];
+      if (!fila[0]) continue;
+      clientes.push({
+        id:       String(fila[0]),
+        nombre:   fila[1],
+        telefono: String(fila[2]),
+        tipo:     fila[3],
+        nota:     fila[4] || '',
+        estado:   fila[5] || 'pendiente',
+        fecha:    fila[6] || ''
+      });
+    }
+    return ContentService
+      .createTextOutput(JSON.stringify({ok: true, clientes: clientes}))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ok: false, error: err.toString()}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// ── ESCRIBIR / EDITAR / ELIMINAR / NOTIFICAR ─────────────────────────────
+function doPost(e) {
   try {
     var ss   = SpreadsheetApp.getActiveSpreadsheet();
     var hoja = ss.getSheets()[0];
@@ -587,6 +620,25 @@ if (config.scriptUrl) {
 document.getElementById('inp-plantilla').value = plantilla;
 actualizarPreview();
 actualizarContador();
+
+// ─── SINCRONIZACIÓN DESDE SHEETS ────────────────────────────────────────
+cargarDesdeSheets();
+
+async function cargarDesdeSheets() {
+  const url = (document.getElementById('inp-script-url').value || '').trim();
+  if (!url) return;
+  try {
+    document.getElementById('count-badge').textContent = 'Sincronizando...';
+    const r = await fetch(url);
+    const data = await r.json();
+    if (data.ok && data.clientes) {
+      clientes = data.clientes;
+      localStorage.setItem('gm_clientes', JSON.stringify(clientes));
+      actualizarContador();
+      renderLista();
+    } else { actualizarContador(); }
+  } catch { actualizarContador(); }
+}
 
 // ─── TABS ───────────────────────────────────────────────────────────────
 function showTab(tab) {
