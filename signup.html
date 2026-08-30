@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Regístrate — Apoyo Marca Segura</title>
+<meta name="theme-color" content="#1A4FBF">
+<style>
+  :root {
+    --bg: #F7F6F3;
+    --surface: #FFFFFF;
+    --border: #E2E0DA;
+    --text: #1A1A18;
+    --muted: #7A7870;
+    --accent: #003DA5;
+    --accent-bg: #E8EEFA;
+    --green: #1E7B4E;
+    --green-bg: #E6F4EE;
+    --red: #C0392B;
+    --orange: #F47A20;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 24px 20px; text-align: center; }
+  .header-logo { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 6px; }
+  .header-title { font-size: 20px; font-weight: 700; color: var(--accent); }
+  .header-sub { font-size: 14px; color: var(--muted); }
+
+  .banner { background: var(--accent-bg); border-bottom: 1px solid #B5D4F4; padding: 14px 20px; text-align: center; }
+  .banner-text { font-size: 14px; color: var(--accent); font-weight: 600; line-height: 1.5; }
+  .banner-price { font-size: 22px; font-weight: 800; color: var(--orange); }
+
+  .section { padding: 20px; max-width: 480px; margin: 0 auto; }
+
+  .form-card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 16px; margin-bottom: 12px; }
+  .form-label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; display: block; }
+  .form-input { width: 100%; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; font-size: 16px; color: var(--text); background: var(--bg); outline: none; transition: border-color .15s; }
+  .form-input:focus { border-color: var(--accent); background: #fff; }
+  .required { color: var(--red); }
+
+  .save-btn { width: 100%; padding: 16px; background: var(--orange); color: #fff; border: none; border-radius: var(--radius); font-size: 17px; font-weight: 700; cursor: pointer; margin-top: 4px; transition: opacity .15s; }
+  .save-btn:active { opacity: .85; }
+  .save-btn:disabled { opacity: .5; }
+
+  .hint { font-size: 12px; color: var(--muted); margin-top: 10px; text-align: center; line-height: 1.5; }
+
+  .success-screen { display: none; text-align: center; padding: 60px 24px; }
+  .success-screen.show { display: block; }
+  .success-icon { font-size: 56px; margin-bottom: 16px; }
+  .success-title { font-size: 20px; font-weight: 700; margin-bottom: 8px; color: var(--green); }
+  .success-text { font-size: 15px; color: var(--muted); line-height: 1.6; max-width: 340px; margin: 0 auto; }
+
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1A1A18; color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 100; white-space: nowrap; }
+  .toast.show { opacity: 1; }
+
+  .footer-note { text-align: center; padding: 20px; font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-title">Marca Segura</div>
+  <div class="header-sub">Registro de trámite de marca</div>
+</div>
+
+<div class="banner">
+  <div class="banner-text">Apártate para el apoyo de gobierno<br>
+  <span class="banner-price">$3,500 + IVA</span></div>
+</div>
+
+<div class="section" id="form-section">
+  <div class="form-card">
+    <label class="form-label">Nombre completo <span class="required">*</span></label>
+    <input class="form-input" id="inp-nombre" type="text" placeholder="Tu nombre" autocomplete="name">
+  </div>
+
+  <div class="form-card">
+    <label class="form-label">Teléfono / WhatsApp <span class="required">*</span></label>
+    <input class="form-input" id="inp-telefono" type="tel" placeholder="33 1234 5678" autocomplete="tel">
+  </div>
+
+  <div class="form-card">
+    <label class="form-label">Correo</label>
+    <input class="form-input" id="inp-email" type="email" placeholder="correo@mail.com" autocomplete="email">
+  </div>
+
+  <div class="form-card">
+    <label class="form-label">Nombre de tu marca</label>
+    <input class="form-input" id="inp-marca" type="text" placeholder="Ej. MarcaX">
+  </div>
+
+  <div class="form-card">
+    <label class="form-label">Producto o servicio</label>
+    <input class="form-input" id="inp-producto" type="text" placeholder="Ej. Ropa deportiva">
+  </div>
+
+  <div class="form-card">
+    <label class="form-label">Comentario (opcional)</label>
+    <input class="form-input" id="inp-nota" type="text" placeholder="¿Algo que debamos saber?">
+  </div>
+
+  <button class="save-btn" onclick="enviarRegistro()" id="btn-enviar">Apartar mi lugar</button>
+
+  <p class="hint">Al enviar, guardamos tus datos únicamente para avisarte cuando se abra el periodo de inscripción al apoyo.</p>
+</div>
+
+<div class="success-screen" id="success-screen">
+  <div class="success-icon">🎉</div>
+  <div class="success-title">¡Listo, quedaste registrado!</div>
+  <p class="success-text">Te contactaremos por WhatsApp en cuanto se abra el periodo de inscripción al apoyo de gobierno.</p>
+</div>
+
+<div class="footer-note">Marca Segura — Registro de trámite de marca</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ⚠️ Pega aquí la misma URL de Apps Script que usas en la app principal (pestaña Config)
+const SCRIPT_URL = 'PEGA_AQUI_TU_URL_DE_APPS_SCRIPT';
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+async function enviarRegistro() {
+  const nombre   = document.getElementById('inp-nombre').value.trim();
+  const telefono = document.getElementById('inp-telefono').value.trim();
+  const email    = document.getElementById('inp-email').value.trim();
+  const marca    = document.getElementById('inp-marca').value.trim();
+  const producto = document.getElementById('inp-producto').value.trim();
+  const nota     = document.getElementById('inp-nota').value.trim();
+
+  if (!nombre)   { toast('Falta tu nombre'); return; }
+  if (!telefono) { toast('Falta tu teléfono'); return; }
+
+  if (!SCRIPT_URL || SCRIPT_URL.indexOf('PEGA_AQUI') === 0) {
+    toast('Formulario sin configurar, avisa al organizador');
+    return;
+  }
+
+  const cliente = {
+    accion: 'agregar',
+    id: Date.now(),
+    nombre, telefono, email, marca, producto,
+    tipo: 'apoyo',
+    nota,
+    estado: 'pendiente'
+  };
+
+  const btn = document.getElementById('btn-enviar');
+  btn.disabled = true;
+  btn.textContent = 'Enviando...';
+
+  try {
+    await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(cliente) });
+    document.getElementById('form-section').style.display = 'none';
+    document.getElementById('success-screen').classList.add('show');
+  } catch (err) {
+    toast('No se pudo enviar, intenta de nuevo');
+    btn.disabled = false;
+    btn.textContent = 'Apartar mi lugar';
+  }
+}
+</script>
+</body>
+</html>
