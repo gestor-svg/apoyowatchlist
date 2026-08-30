@@ -62,12 +62,12 @@
 <body>
 
 <div class="header">
-  <div class="header-title">Marca Segura</div>
+  <img src="marca-segura-logo-sin-fondo.png" alt="Marca Segura" style="max-width:220px;width:100%;height:auto;margin-bottom:8px">
   <div class="header-sub">Registro de trámite de marca</div>
 </div>
 
 <div class="banner">
-  <div class="banner-text">Apártate para el apoyo de gobierno<br>
+  <div class="banner-text">Registrate para el apoyo de gobierno<br>
   <span class="banner-price">$3,500 + IVA</span></div>
 </div>
 
@@ -93,13 +93,13 @@
   </div>
 
   <div class="form-card">
-    <label class="form-label">Producto o servicio</label>
-    <input class="form-input" id="inp-producto" type="text" placeholder="Ej. Ropa deportiva">
+    <label class="form-label">Describe tu Producto o servicio</label>
+    <input class="form-input" id="inp-producto" type="text" placeholder="Ej. Ropa deportiva, Servicio de Diseño, Nombre Artistico">
   </div>
 
   <div class="form-card">
     <label class="form-label">Comentario (opcional)</label>
-    <input class="form-input" id="inp-nota" type="text" placeholder="¿Algo que debamos saber?">
+    <input class="form-input" id="inp-nota" type="text" placeholder="¿Algo que debamos saber? ¿Desde cuando la usas?">
   </div>
 
   <button class="save-btn" onclick="enviarRegistro()" id="btn-enviar">Apartar mi lugar</button>
@@ -113,13 +113,13 @@
   <p class="success-text">Te contactaremos por WhatsApp en cuanto se abra el periodo de inscripción al apoyo de gobierno.</p>
 </div>
 
-<div class="footer-note">Marca Segura — Registro de trámite de marca</div>
+<div class="footer-note">Marca Segura — Whatsapp: 33521 04501</div>
 
 <div class="toast" id="toast"></div>
 
 <script>
 // ⚠️ Pega aquí la misma URL de Apps Script que usas en la app principal (pestaña Config)
-const SCRIPT_URL = 'PEGA_AQUI_TU_URL_DE_APPS_SCRIPT';
+const SCRIPT_URL = https://script.google.com/macros/s/AKfycbzXXybeGL6vawi9zdz36kmNB0iHjRKRvY5E4OkCttqUC8OTua5Ah7c4bRPCJ9us1sjl/exec;
 
 function toast(msg) {
   const el = document.getElementById('toast');
