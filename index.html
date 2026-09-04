@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+successfully downloaded text file (SHA: 10d49f2d9815406640a35369e71c81540584cf1c)<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -286,6 +286,11 @@
       <button class="notify-btn" onclick="abrirModal()">📨 Notificar</button>
     </div>
   </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <span class="action-link" style="cursor:pointer" onclick="seleccionarTodos()">Seleccionar todos</span>
+    <span class="hint" id="seleccion-info" style="margin:0">Ninguno seleccionado</span>
+    <button class="notify-btn" style="background:var(--green-bg);color:var(--green);border-color:#B8DCC8" onclick="abrirModalEncuesta()">📋 Encuesta</button>
+  </div>
   <div id="lista-container"></div>
 </div>
 
@@ -308,6 +313,17 @@
     <div class="msg-preview" id="msg-preview-box"></div>
   </div>
   <button class="save-btn" onclick="guardarPlantilla()">Guardar plantilla</button>
+
+  <div class="form-card" style="margin-top:20px">
+    <label class="form-label">Plantilla de encuesta</label>
+    <p class="hint" style="margin-bottom:10px">Variables disponibles: <span class="tag-pill">{nombre}</span></p>
+    <textarea class="msg-textarea" id="inp-plantilla-encuesta" oninput="actualizarPreviewEncuesta()"></textarea>
+  </div>
+  <div class="form-card">
+    <div class="msg-preview-label">Vista previa (datos de ejemplo)</div>
+    <div class="msg-preview" id="msg-preview-encuesta-box"></div>
+  </div>
+  <button class="save-btn" style="background:var(--green)" onclick="guardarPlantillaEncuesta()">Guardar plantilla de encuesta</button>
 </div>
 
 <!-- ───────────────── TAB: CONFIG ───────────────── -->
@@ -596,14 +612,30 @@ Ya se abrió el periodo de solicitudes de *apoyo gobierno* para registro de marc
 
 ¡Los lugares son limitados! Contáctame para apartar el tuyo. 🎯`;
 
+const PLANTILLA_ENCUESTA_DEFAULT =
+`Hola {nombre} 👋 ya casi se abre el programa de apoyo de marcas.
+
+Confírmame por favor:
+
+1️⃣ Ya tienes tu nombre/logo listo y el pago de $1,000 está hecho
+2️⃣ El pago lo harás con tarjeta
+3️⃣ Aún no tienes el nombre
+4️⃣ Tienes más de una marca
+5️⃣ Ya no te interesa participar
+
+Contéstame con el número que aplique 🙌`;
+
 // ─── ESTADO ────────────────────────────────────────────────────────────
 let clientes        = JSON.parse(localStorage.getItem('gm_clientes') || '[]');
 let config          = JSON.parse(localStorage.getItem('gm_config')   || '{}');
-let plantilla       = localStorage.getItem('gm_plantilla') || PLANTILLA_DEFAULT;
+let plantilla        = localStorage.getItem('gm_plantilla')          || PLANTILLA_DEFAULT;
+let plantillaEncuesta = localStorage.getItem('gm_plantilla_encuesta') || PLANTILLA_ENCUESTA_DEFAULT;
 let tipoSeleccionado = '';
 let recognition = null, activeMic = null;
 let editandoId  = null;
 let colaEnvio = [], colaIndex = 0, fechaInicio = '', fechaFin = '', enviados = 0;
+let modoEnvio = 'notificar';
+let selectedIds = new Set();
 
 // Init
 // Init WA selector
@@ -619,6 +651,8 @@ if (config.scriptUrl) {
 }
 document.getElementById('inp-plantilla').value = plantilla;
 actualizarPreview();
+document.getElementById('inp-plantilla-encuesta').value = plantillaEncuesta;
+actualizarPreviewEncuesta();
 actualizarContador();
 
 // ─── SINCRONIZACIÓN DESDE SHEETS ────────────────────────────────────────
@@ -649,7 +683,7 @@ function showTab(tab) {
     el.classList.toggle('active', ['captura','lista','mensaje','config'][i]===tab);
   });
   if (tab==='lista')   renderLista();
-  if (tab==='mensaje') actualizarPreview();
+  if (tab==='mensaje') { actualizarPreview(); actualizarPreviewEncuesta(); }
 }
 
 // ─── VOZ ────────────────────────────────────────────────────────────────
@@ -805,6 +839,7 @@ function renderLista() {
       ? `<span class="client-badge badge-notificado">✓ Notificado</span>`
       : `<span class="client-badge badge-apoyo">En espera</span>`;
     return `<div class="client-card">
+      <input type="checkbox" style="width:20px;height:20px;margin-top:10px;flex-shrink:0;accent-color:var(--accent)" id="chk-${c.id}" ${selectedIds.has(c.id)?'checked':''} onchange="toggleSeleccion(${c.id}, this.checked)">
       <div class="client-avatar avatar-apoyo">${ini}</div>
       <div style="flex:1;min-width:0">
         <div class="client-name">${c.nombre}</div>
@@ -821,6 +856,7 @@ function renderLista() {
       </div>${badge}
     </div>`;
   }).join('');
+  actualizarContadorSeleccion();
 }
 
 // ─── WHATSAPP INDIVIDUAL ────────────────────────────────────────────────
@@ -963,8 +999,42 @@ function guardarPlantilla() {
   toast('Plantilla guardada ✓');
 }
 
+// ─── ENCUESTA ───────────────────────────────────────────────────────────
+function construirEncuesta(c) {
+  return plantillaEncuesta.replace(/{nombre}/g, c.nombre || '');
+}
+function actualizarPreviewEncuesta() {
+  plantillaEncuesta = document.getElementById('inp-plantilla-encuesta').value;
+  document.getElementById('msg-preview-encuesta-box').textContent =
+    construirEncuesta({ nombre: 'Juan Pérez' });
+}
+function guardarPlantillaEncuesta() {
+  plantillaEncuesta = document.getElementById('inp-plantilla-encuesta').value;
+  localStorage.setItem('gm_plantilla_encuesta', plantillaEncuesta);
+  toast('Plantilla de encuesta guardada ✓');
+}
+
+// ─── SELECCIÓN DE CLIENTES ──────────────────────────────────────────────
+function toggleSeleccion(id, checked) {
+  if (checked) selectedIds.add(id); else selectedIds.delete(id);
+  actualizarContadorSeleccion();
+}
+function actualizarContadorSeleccion() {
+  const n = selectedIds.size;
+  const el = document.getElementById('seleccion-info');
+  if (el) el.textContent = n > 0 ? `${n} seleccionado${n===1?'':'s'}` : 'Ninguno seleccionado';
+}
+function seleccionarTodos() {
+  const espera = clientes.filter(c => c.tipo === 'apoyo');
+  const todosSeleccionados = espera.every(c => selectedIds.has(c.id));
+  espera.forEach(c => todosSeleccionados ? selectedIds.delete(c.id) : selectedIds.add(c.id));
+  renderLista();
+  actualizarContadorSeleccion();
+}
+
 // ─── MODAL NOTIFICACIÓN ─────────────────────────────────────────────────
 function abrirModal() {
+  modoEnvio = 'notificar';
   const espera = clientes.filter(c => c.tipo==='apoyo' && c.estado!=='notificado');
   if (espera.length===0) { toast('No hay clientes pendientes de notificar'); return; }
   document.getElementById('modal-inicio').value = '';
@@ -999,6 +1069,25 @@ function iniciarEnvioUnoAUno() {
   document.getElementById('fase-envio').style.display  = '';
   mostrarClienteActual();
 }
+
+function abrirModalEncuesta() {
+  modoEnvio = 'encuesta';
+  colaEnvio = selectedIds.size > 0
+    ? clientes.filter(c => selectedIds.has(c.id))
+    : clientes.filter(c => c.tipo === 'apoyo');
+  if (colaEnvio.length === 0) { toast('No hay clientes para enviar la encuesta'); return; }
+  colaIndex = 0; enviados = 0;
+  document.getElementById('fase-fechas').style.display = 'none';
+  document.getElementById('fase-envio').style.display  = '';
+  document.getElementById('fase-fin').style.display    = 'none';
+  mostrarMediaEnModal('modal-media-thumb-wrap', 'modal-media-thumb-preview', 'modal-media-nombre');
+  document.getElementById('modal-fechas').classList.add('open');
+  mostrarClienteActual();
+}
+
+function construirMensajeActual(c) {
+  return modoEnvio === 'encuesta' ? construirEncuesta(c) : construirMensaje(c, fechaInicio, fechaFin);
+}
 function mostrarClienteActual() {
   if (colaIndex >= colaEnvio.length) {
     document.getElementById('fase-envio').style.display = 'none';
@@ -1015,22 +1104,23 @@ function mostrarClienteActual() {
   document.getElementById('turno-nombre').textContent   = c.nombre;
   document.getElementById('turno-telefono').textContent = c.telefono + (c.email ? ' · '+c.email : '');
   document.getElementById('turno-marca').textContent    = c.marca ? '🏷️ '+c.marca : '';
-  document.getElementById('turno-msg').textContent      = construirMensaje(c, fechaInicio, fechaFin);
+  document.getElementById('turno-msg').textContent      = construirMensajeActual(c);
   mostrarThumbEnTurno();
 }
 function enviarActual() {
   const c   = colaEnvio[colaIndex];
-  const link = buildWALink(c.telefono, construirMensaje(c, fechaInicio, fechaFin));
+  const link = buildWALink(c.telefono, construirMensajeActual(c));
   window.open(link, '_blank');
-  c.estado = 'notificado';
   enviados++;
   colaIndex++;
-  localStorage.setItem('gm_clientes', JSON.stringify(clientes));
-  // Sincronizar con Sheets
-  const scriptUrl = config.scriptUrl;
-  if (scriptUrl) {
-    fetch(scriptUrl, { method:'POST', body: JSON.stringify({accion:'notificado', id: c.id}) })
-      .catch(() => {});
+  if (modoEnvio === 'notificar') {
+    c.estado = 'notificado';
+    localStorage.setItem('gm_clientes', JSON.stringify(clientes));
+    const scriptUrl = config.scriptUrl;
+    if (scriptUrl) {
+      fetch(scriptUrl, { method:'POST', body: JSON.stringify({accion:'notificado', id: c.id}) })
+        .catch(() => {});
+    }
   }
   mostrarClienteActual();
 }
