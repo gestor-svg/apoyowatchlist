@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+successfully downloaded text file (SHA: 10d49f2d9815406640a35369e71c81540584cf1c)<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -286,10 +286,13 @@
       <button class="notify-btn" onclick="abrirModal()">📨 Notificar</button>
     </div>
   </div>
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
     <span class="action-link" style="cursor:pointer" onclick="seleccionarTodos()">Seleccionar todos</span>
     <span class="hint" id="seleccion-info" style="margin:0">Ninguno seleccionado</span>
     <button class="notify-btn" style="background:var(--green-bg);color:var(--green);border-color:#B8DCC8" onclick="abrirModalEncuesta()">📋 Encuesta</button>
+  </div>
+  <div style="text-align:right;margin-bottom:10px">
+    <span class="action-link" style="cursor:pointer;color:var(--muted);font-size:12px" onclick="reiniciarEncuesta()">Reiniciar encuesta ↺</span>
   </div>
   <div id="lista-container"></div>
 </div>
@@ -497,13 +500,14 @@ function doGet(e) {
       var fila = datos[i];
       if (!fila[0]) continue;
       clientes.push({
-        id:       String(fila[0]),
-        nombre:   fila[1],
-        telefono: String(fila[2]),
-        tipo:     fila[3],
-        nota:     fila[4] || '',
-        estado:   fila[5] || 'pendiente',
-        fecha:    fila[6] || ''
+        id:         String(fila[0]),
+        nombre:     fila[1],
+        telefono:   String(fila[2]),
+        tipo:       fila[3],
+        nota:       fila[4] || '',
+        estado:     fila[5] || 'pendiente',
+        fecha:      fila[6] || '',
+        encuestado: String(fila[10] || '').trim().toLowerCase() === 'sí' || String(fila[10] || '').trim().toLowerCase() === 'si'
       });
     }
     return ContentService
@@ -516,7 +520,7 @@ function doGet(e) {
   }
 }
 
-// ── ESCRIBIR / EDITAR / ELIMINAR / NOTIFICAR ─────────────────────────────
+// ── ESCRIBIR / EDITAR / ELIMINAR / NOTIFICAR / ENCUESTA ──────────────────
 function doPost(e) {
   try {
     var ss   = SpreadsheetApp.getActiveSpreadsheet();
@@ -528,8 +532,8 @@ function doPost(e) {
     if (hoja.getLastRow() === 0) {
       hoja.appendRow(['ID','Nombre','Teléfono','Email','Nombre de marca',
         'Producto / servicio','Fecha de registro','Notas',
-        'Notificado (Sí/No)','Fecha de notificación']);
-      hoja.getRange(1,1,1,10).setFontWeight('bold');
+        'Notificado (Sí/No)','Fecha de notificación','Encuestado (Sí/No)']);
+      hoja.getRange(1,1,1,11).setFontWeight('bold');
     }
 
     if (accion === 'agregar') {
@@ -542,7 +546,7 @@ function doPost(e) {
         d.producto  || '',
         new Date().toLocaleDateString('es-MX'),
         d.nota      || '',
-        'No', ''
+        'No', '', 'No'
       ]);
 
     } else if (accion === 'editar') {
@@ -565,6 +569,18 @@ function doPost(e) {
       if (fila > 0) {
         hoja.getRange(fila, 9).setValue('Sí');
         hoja.getRange(fila, 10).setValue(new Date().toLocaleDateString('es-MX'));
+      }
+
+    } else if (accion === 'encuestado') {
+      var fila = buscarFila(hoja, d.id, d.telefono);
+      if (fila > 0) {
+        hoja.getRange(fila, 11).setValue('Sí');
+      }
+
+    } else if (accion === 'reiniciar_encuesta') {
+      var ultimaFila = hoja.getLastRow();
+      if (ultimaFila > 1) {
+        hoja.getRange(2, 11, ultimaFila - 1, 1).setValue('No');
       }
     }
 
@@ -617,14 +633,13 @@ const PLANTILLA_ENCUESTA_DEFAULT =
 
 Confírmame por favor:
 
-1️⃣ Ya tienes tu nombre/logo listo y el pago de $1,000 está disponible
+1️⃣ Ya tienes tu nombre/logo listo y el pago de $1,000 está hecho
 2️⃣ El pago lo harás con tarjeta
 3️⃣ Aún no tienes el nombre
 4️⃣ Tienes más de una marca
 5️⃣ Ya no te interesa participar
 
-Contéstame con el número que aplique pon todos los que apliquen 🙌
-EL APOYO SOLO ABRIRA UNA SEMANA LA INSCRIPCION ASI QUE URGE TU RESPUESTA PARA AGENDARTE CITA DE INSCRIPCIÓN`;
+Contéstame con el número que aplique 🙌`;
 
 // ─── ESTADO ────────────────────────────────────────────────────────────
 let clientes        = JSON.parse(localStorage.getItem('gm_clientes') || '[]');
@@ -847,6 +862,7 @@ function renderLista() {
         <div class="client-phone">${c.telefono}${c.email ? ' · '+c.email : ''}</div>
         ${c.marca ? `<div class="client-marca">🏷️ ${c.marca}${c.producto ? ' — '+c.producto : ''}</div>` : ''}
         ${c.nota  ? `<div class="client-phone" style="font-style:italic;margin-top:2px">${c.nota}</div>` : ''}
+        ${c.encuestado ? `<div style="font-size:11px;color:var(--green);margin-top:2px">✓ Encuesta enviada</div>` : ''}
         <div class="client-actions">
           <span class="action-link" onclick="enviarWAIndividual(${c.id})">WhatsApp</span>
           <span class="sep">·</span>
@@ -1032,6 +1048,20 @@ function seleccionarTodos() {
   renderLista();
   actualizarContadorSeleccion();
 }
+function reiniciarEncuesta() {
+  const scriptUrl = config.scriptUrl;
+  if (!scriptUrl) { toast('Configura primero el Apps Script'); return; }
+  if (!confirm('¿Reiniciar la encuesta? Todos volverán a estar pendientes.')) return;
+  toast('Reiniciando...');
+  fetch(scriptUrl, { method:'POST', body: JSON.stringify({accion:'reiniciar_encuesta'}) })
+    .then(() => {
+      clientes.forEach(c => c.encuestado = false);
+      localStorage.setItem('gm_clientes', JSON.stringify(clientes));
+      renderLista();
+      toast('Encuesta reiniciada — todos vuelven a estar pendientes ✓');
+    })
+    .catch(() => toast('No se pudo reiniciar, revisa tu conexión'));
+}
 
 // ─── MODAL NOTIFICACIÓN ─────────────────────────────────────────────────
 function abrirModal() {
@@ -1075,8 +1105,11 @@ function abrirModalEncuesta() {
   modoEnvio = 'encuesta';
   colaEnvio = selectedIds.size > 0
     ? clientes.filter(c => selectedIds.has(c.id))
-    : clientes.filter(c => c.tipo === 'apoyo');
-  if (colaEnvio.length === 0) { toast('No hay clientes para enviar la encuesta'); return; }
+    : clientes.filter(c => c.tipo === 'apoyo' && !c.encuestado);
+  if (colaEnvio.length === 0) {
+    toast(selectedIds.size > 0 ? 'No hay clientes para enviar la encuesta' : 'Ya le enviaste la encuesta a todos — usa "Reiniciar encuesta" si quieres mandarla de nuevo');
+    return;
+  }
   colaIndex = 0; enviados = 0;
   document.getElementById('fase-fechas').style.display = 'none';
   document.getElementById('fase-envio').style.display  = '';
@@ -1120,6 +1153,14 @@ function enviarActual() {
     const scriptUrl = config.scriptUrl;
     if (scriptUrl) {
       fetch(scriptUrl, { method:'POST', body: JSON.stringify({accion:'notificado', id: c.id}) })
+        .catch(() => {});
+    }
+  } else if (modoEnvio === 'encuesta') {
+    c.encuestado = true;
+    localStorage.setItem('gm_clientes', JSON.stringify(clientes));
+    const scriptUrl = config.scriptUrl;
+    if (scriptUrl) {
+      fetch(scriptUrl, { method:'POST', body: JSON.stringify({accion:'encuestado', id: c.id, telefono: c.telefono}) })
         .catch(() => {});
     }
   }
