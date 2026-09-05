@@ -775,7 +775,7 @@ async function guardarCliente() {
   if (!tipoSeleccionado) { toast('Selecciona el tipo de cliente'); return; }
 
   const cliente = {
-    id: Date.now(), nombre, telefono, email, marca, producto,
+    id: String(Date.now()), nombre, telefono, email, marca, producto,
     tipo: tipoSeleccionado, nota, estado: 'pendiente',
     fecha: new Date().toLocaleDateString('es-MX')
   };
@@ -855,7 +855,7 @@ function renderLista() {
       ? `<span class="client-badge badge-notificado">✓ Notificado</span>`
       : `<span class="client-badge badge-apoyo">En espera</span>`;
     return `<div class="client-card">
-      <input type="checkbox" style="width:20px;height:20px;margin-top:10px;flex-shrink:0;accent-color:var(--accent)" id="chk-${c.id}" ${selectedIds.has(c.id)?'checked':''} onchange="toggleSeleccion(${c.id}, this.checked)">
+      <input type="checkbox" style="width:20px;height:20px;margin-top:10px;flex-shrink:0;accent-color:var(--accent)" id="chk-${c.id}" ${selectedIds.has(c.id)?'checked':''} onchange="toggleSeleccion('${c.id}', this.checked)">
       <div class="client-avatar avatar-apoyo">${ini}</div>
       <div style="flex:1;min-width:0">
         <div class="client-name">${c.nombre}</div>
@@ -864,11 +864,11 @@ function renderLista() {
         ${c.nota  ? `<div class="client-phone" style="font-style:italic;margin-top:2px">${c.nota}</div>` : ''}
         ${c.encuestado ? `<div style="font-size:11px;color:var(--green);margin-top:2px">✓ Encuesta enviada</div>` : ''}
         <div class="client-actions">
-          <span class="action-link" onclick="enviarWAIndividual(${c.id})">WhatsApp</span>
+          <span class="action-link" onclick="enviarWAIndividual('${c.id}')">WhatsApp</span>
           <span class="sep">·</span>
-          <span class="action-link" onclick="editarCliente(${c.id})">Editar</span>
+          <span class="action-link" onclick="editarCliente('${c.id}')">Editar</span>
           <span class="sep">·</span>
-          <span class="delete-link" onclick="eliminarCliente(${c.id})">Eliminar</span>
+          <span class="delete-link" onclick="eliminarCliente('${c.id}')">Eliminar</span>
         </div>
       </div>${badge}
     </div>`;
